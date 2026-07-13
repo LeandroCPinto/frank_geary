@@ -100,6 +100,8 @@ public class Components.PreferencesWindow : Hdy.PreferencesWindow {
     }
 
     private Application.PluginManager plugins;
+    private Gtk.Entry[] section_names = {};
+    private Gtk.Entry[] section_targets = {};
 
 
     public PreferencesWindow(Application.MainWindow parent,
@@ -113,7 +115,124 @@ public class Components.PreferencesWindow : Hdy.PreferencesWindow {
         this.plugins = plugins;
 
         add_general_pane();
+        add_inbox_sections_pane();
         add_plugin_pane();
+    }
+
+    /**
+     * Lets the additional inbox sections be edited.
+     *
+     * Each row is a (name, target) pair; empty rows are dropped, so a section
+     * is removed by clearing its target.
+     */
+    private void add_inbox_sections_pane() {
+        Application.Client? application = this.application;
+        if (application == null) {
+            return;
+        }
+        Application.Configuration config = application.config;
+
+        var visible = new Gtk.Switch();
+        visible.valign = CENTER;
+
+        var visible_row = new Hdy.ActionRow();
+        /// Translators: Preferences label
+        visible_row.title = _("_Show inbox sections");
+        visible_row.use_underline = true;
+        visible_row.activatable_widget = visible;
+        visible_row.add(visible);
+
+        var visible_group = new Hdy.PreferencesGroup();
+        visible_group.add(visible_row);
+
+        var sections_group = new Hdy.PreferencesGroup();
+        /// Translators: Preferences group title
+        sections_group.title = _("Sections");
+        /// Translators: Preferences group description
+        sections_group.description = _(
+            "Each section is shown as a list below the inbox. A target is " +
+            "either a folder, written as “folder:Name”, or a search query " +
+            "such as “is:unread”. Clear a target to remove its section."
+        );
+
+        var configured = config.get_inbox_sections();
+        for (int i = 0; i < Application.Configuration.MAX_INBOX_SECTIONS; i++) {
+            var name = new Gtk.Entry();
+            name.valign = CENTER;
+            name.width_chars = 14;
+            /// Translators: Preferences placeholder
+            name.placeholder_text = _("Name");
+
+            var target = new Gtk.Entry();
+            target.valign = CENTER;
+            target.width_chars = 20;
+            /// Translators: Preferences placeholder
+            target.placeholder_text = _("folder:Name or is:unread");
+
+            if (i < configured.length) {
+                name.text = configured[i].name;
+                target.text = configured[i].target;
+            }
+
+            this.section_names += name;
+            this.section_targets += target;
+
+            var row = new Hdy.ActionRow();
+            /// Translators: Preferences label, %d is the section's number
+            row.title = _("Section %d").printf(i + 1);
+            row.add(name);
+            row.add(target);
+            sections_group.add(row);
+
+            // Saving rebuilds the panel's folders and monitors, so it waits
+            // for the field to be done with rather than firing on each keypress
+            name.activate.connect(save_inbox_sections);
+            target.activate.connect(save_inbox_sections);
+            name.focus_out_event.connect(() => {
+                save_inbox_sections();
+                return Gdk.EVENT_PROPAGATE;
+            });
+            target.focus_out_event.connect(() => {
+                save_inbox_sections();
+                return Gdk.EVENT_PROPAGATE;
+            });
+        }
+
+        var page = new Hdy.PreferencesPage();
+        /// Translators: Preferences page title
+        page.title = _("Inbox Sections");
+        page.icon_name = "mail-inbox-symbolic";
+        page.add(visible_group);
+        page.add(sections_group);
+        page.show_all();
+
+        add(page);
+
+        config.bind(
+            Application.Configuration.INBOX_SECTIONS_VISIBLE,
+            visible,
+            "state"
+        );
+    }
+
+    private void save_inbox_sections() {
+        Application.Client? application = this.application;
+        if (application == null) {
+            return;
+        }
+
+        Application.InboxSection[] sections = {};
+        for (int i = 0; i < this.section_targets.length; i++) {
+            var target = this.section_targets[i].text.strip();
+            if (target != "") {
+                var name = this.section_names[i].text.strip();
+                sections += Application.InboxSection() {
+                    name = (name != "") ? name : target,
+                    target = target
+                };
+            }
+        }
+        application.config.set_inbox_sections(sections);
     }
 
     private void add_general_pane() {
