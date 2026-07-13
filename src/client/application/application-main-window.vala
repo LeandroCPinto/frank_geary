@@ -78,6 +78,7 @@ public class Application.MainWindow :
     private const int UPDATE_UI_INTERVAL = 60;
 
     private const int MIN_CONVERSATION_COUNT = 50;
+    private const int MIN_INBOX_HEIGHT = 120;
 
     static construct {
         // Set up default keybindings
@@ -380,6 +381,37 @@ public class Application.MainWindow :
     public SearchBar search_bar { get; private set; }
     public ConversationList.View conversation_list_view  { get; private set; }
     public ConversationViewer conversation_viewer { get; private set; }
+    public Components.InboxSectionsPanel inbox_sections { get; private set; }
+    private Gtk.Paned conversation_list_paned;
+    private bool inbox_sections_any_expanded = false;
+    private bool inbox_expanded = true;
+    private bool accordion_updating = false;
+
+    /**
+     * The folder message actions apply to.
+     *
+     * When a conversation is selected in an inbox section, actions such as
+     * move, copy and mark must act on that section's folder, not on the folder
+     * selected in the folder list.
+     */
+    private Geary.Folder? action_folder {
+        get {
+            return (this.inbox_sections.active_folder != null)
+                ? this.inbox_sections.active_folder
+                : this.selected_folder;
+        }
+    }
+
+    /** The conversation list whose selection message actions apply to. */
+    private ConversationList.View action_list {
+        get {
+            return (this.inbox_sections.active_list != null)
+                ? this.inbox_sections.active_list
+                : this.conversation_list_view;
+        }
+    }
+    private Gtk.Image inbox_header_arrow;
+    private Gtk.Label inbox_header_label;
 
     public Components.InfoBarStack conversation_list_info_bars {
         get; private set; default = new Components.InfoBarStack(PRIORITY_QUEUE);
@@ -816,8 +848,27 @@ public class Application.MainWindow :
             // With everything disposed of, update existing window
             // state
 
+            bool account_changed = (
+                this.selected_folder == null ||
+                to_select == null ||
+                this.selected_folder.account != to_select.account
+            );
+
             select_account(to_select != null ? to_select.account : null);
             this.selected_folder = to_select;
+
+            if (to_select != null) {
+                this.inbox_header_label.label = (
+                    Util.I18n.to_folder_display_name(to_select) ??
+                    to_select.path.name
+                );
+            }
+
+            // The sections are backed by per-account folders, so they only
+            // need rebuilding when the account itself changes
+            if (account_changed && to_select != null) {
+                reload_inbox_sections();
+            }
 
             // Ensure that the folder is selected in the UI if
             // this was called by something other than the
@@ -1357,9 +1408,95 @@ public class Application.MainWindow :
         this.conversation_list_view.conversation_activated.connect(on_conversation_activated);
         this.conversation_list_view.visible_conversations.notify.connect(on_visible_conversations_changed);
 
-        this.conversation_list_box.pack_start(
-            this.conversation_list_view, true, true, 0
+        // The inbox sits above its sections in the same column, so that the
+        // sections cost no horizontal space. It is collapsible like they are:
+        // the column is one accordion, with a single list open at a time.
+        this.inbox_header_arrow = new Gtk.Image.from_icon_name(
+            "pan-down-symbolic", MENU
         );
+        this.inbox_header_label = new Gtk.Label(_("Inbox"));
+        this.inbox_header_label.halign = START;
+        this.inbox_header_label.ellipsize = END;
+        this.inbox_header_label.get_style_context().add_class("heading");
+
+        var inbox_header_box = new Gtk.Box(HORIZONTAL, 6);
+        inbox_header_box.margin_start = 6;
+        inbox_header_box.margin_end = 6;
+        inbox_header_box.margin_top = 3;
+        inbox_header_box.margin_bottom = 3;
+        inbox_header_box.add(this.inbox_header_arrow);
+        inbox_header_box.add(this.inbox_header_label);
+
+        var inbox_header = new Gtk.Button();
+        inbox_header.relief = NONE;
+        inbox_header.add(inbox_header_box);
+        inbox_header.get_style_context().add_class("background");
+        inbox_header.clicked.connect(
+            () => set_inbox_expanded(!this.inbox_expanded)
+        );
+
+        this.conversation_list_view.no_show_all = true;
+        this.conversation_list_view.propagate_natural_height = false;
+        this.conversation_list_view.height_request = 80;
+
+        var inbox_box = new Gtk.Box(VERTICAL, 0);
+        inbox_box.pack_start(inbox_header, false, false, 0);
+        inbox_box.pack_start(new Gtk.Separator(HORIZONTAL), false, false, 0);
+        inbox_box.pack_start(this.conversation_list_view, true, true, 0);
+
+        this.conversation_list_paned = new Gtk.Paned(VERTICAL);
+        this.conversation_list_paned.pack1(inbox_box, true, false);
+        this.conversation_list_box.pack_start(
+            this.conversation_list_paned, true, true, 0
+        );
+        this.conversation_list_paned.show_all();
+        this.conversation_list_view.show();
+
+        // Without an explicit position the divider sits at the inbox's
+        // natural height, leaving the sections squashed to their headers
+        this.conversation_list_paned.position =
+            this.application.config.inbox_sections_divider;
+        this.conversation_list_paned.notify["position"].connect(() => {
+            // Only remember where the user put the divider, not where opening
+            // a section moved it
+            if (this.inbox_sections.visible &&
+                !this.inbox_sections_any_expanded) {
+                this.application.config.inbox_sections_divider =
+                    this.conversation_list_paned.position;
+            }
+        });
+
+        // Additional inbox sections, shown between the conversation list
+        // and the conversation viewer
+        this.inbox_sections = new Components.InboxSectionsPanel(
+            this.application.config
+        );
+        this.inbox_sections.conversations_selected.connect(
+            on_inbox_section_selected
+        );
+        this.inbox_sections.conversation_activated.connect(
+            on_conversation_activated
+        );
+        this.inbox_sections.expansion_changed.connect(
+            on_inbox_sections_expansion_changed
+        );
+        this.conversation_list_paned.pack2(this.inbox_sections, true, false);
+        update_inbox_sections_visibility();
+
+        // The saved sidebar state was written but never restored. It has to be
+        // re-applied once mapped, since the leaflet shows its children while
+        // the window is being presented.
+        this.folder_list_sidebar_visible =
+            this.application.config.folder_list_sidebar_visible;
+        this.map.connect(() => {
+            update_folder_list_sidebar_visibility();
+        });
+        this.application.config.settings.changed[
+            Application.Configuration.INBOX_SECTIONS_VISIBLE
+        ].connect(update_inbox_sections_visibility);
+        this.application.config.settings.changed[
+            Application.Configuration.INBOX_SECTIONS
+        ].connect(reload_inbox_sections);
 
         // Conversation viewer
         this.conversation_viewer = new ConversationViewer(
@@ -1741,7 +1878,79 @@ public class Application.MainWindow :
         }
     }
 
+    private void update_inbox_sections_visibility() {
+        bool visible = this.application.config.inbox_sections_visible;
+        this.inbox_sections.visible = visible;
+        if (visible) {
+            reload_inbox_sections();
+        } else {
+            this.inbox_sections.clear();
+        }
+    }
+
+    private void reload_inbox_sections() {
+        if (this.application.config.inbox_sections_visible) {
+            var context = get_selected_account_context();
+            if (context != null) {
+                this.inbox_sections.load(context.account);
+            }
+        }
+    }
+
+    /**
+     * Opens or closes the inbox, which is the accordion's first item.
+     *
+     * Opening it closes every section, and vice versa, so the open list always
+     * has the whole column to itself.
+     */
+    private void set_inbox_expanded(bool expanded) {
+        if (this.inbox_expanded == expanded || this.accordion_updating) {
+            return;
+        }
+
+        this.accordion_updating = true;
+
+        this.inbox_expanded = expanded;
+        this.conversation_list_view.visible = expanded;
+        this.inbox_header_arrow.icon_name = expanded
+            ? "pan-down-symbolic"
+            : "pan-end-symbolic";
+
+        if (expanded) {
+            this.inbox_sections.collapse_all();
+            this.inbox_sections_any_expanded = false;
+            this.conversation_list_paned.position =
+                this.application.config.inbox_sections_divider;
+        } else {
+            // Clamped to the header's height, so the inbox keeps only its title
+            this.conversation_list_paned.position = 0;
+        }
+
+        this.accordion_updating = false;
+    }
+
+    private void on_inbox_sections_expansion_changed(bool any_expanded) {
+        if (this.accordion_updating) {
+            return;
+        }
+        this.inbox_sections_any_expanded = any_expanded;
+        // Closing the last open section brings the inbox back, so the column
+        // is never left as a stack of bare headers
+        set_inbox_expanded(!any_expanded);
+    }
+
+    private void on_inbox_section_selected(
+        Gee.Set<Geary.App.Conversation> selected
+    ) {
+        // A section drives the viewer, so drop the main list's selection
+        this.conversation_list_view.unselect_all();
+        select_conversations.begin(selected, Gee.Collection.empty(), true);
+    }
+
     private void on_conversations_selected(Gee.Set<Geary.App.Conversation> selected) {
+        if (!selected.is_empty) {
+            this.inbox_sections.deselect_all();
+        }
         bool folded = this.outer_leaflet.folded;
         // If folded, selection handled by activate
         if (selected.size > 1 || !folded) {
@@ -1789,8 +1998,15 @@ public class Application.MainWindow :
             this.inner_leaflet.set_visible_child_name(CONVERSATION_LIST);
         }
 
+        // no_show_all keeps the window's show_all() from putting a hidden
+        // sidebar back on screen
+        this.folder_box.no_show_all = !this.folder_list_sidebar_visible;
+        this.folder_separator.no_show_all = !this.folder_list_sidebar_visible;
         this.folder_box.visible = this.folder_list_sidebar_visible;
         this.folder_separator.visible = this.folder_list_sidebar_visible;
+        this.conversation_list_headerbar.set_folder_list_sidebar_shown(
+            this.folder_list_sidebar_visible
+        );
 
         Gtk.Widget? focus = get_focus();
         if (!this.folder_list_sidebar_visible &&
@@ -2572,7 +2788,7 @@ public class Application.MainWindow :
 
     private void on_mark_conversations(Gee.Collection<Geary.App.Conversation> conversations,
                                        Geary.NamedFlag flag) {
-        Geary.Folder? location = this.selected_folder;
+        Geary.Folder? location = this.action_folder;
         if (location != null) {
             this.controller.mark_conversations.begin(
                 location,
@@ -2591,11 +2807,11 @@ public class Application.MainWindow :
     }
 
     private void on_mark_as_read() {
-        Geary.Folder? location = this.selected_folder;
+        Geary.Folder? location = this.action_folder;
         if (location != null) {
             this.controller.mark_conversations.begin(
                 location,
-                this.conversation_list_view.selected,
+                this.action_list.selected,
                 Geary.EmailFlags.UNREAD,
                 false,
                 (obj, res) => {
@@ -2607,15 +2823,15 @@ public class Application.MainWindow :
                 }
             );
         }
-        this.conversation_list_view.selection_mode_enabled = false;
+        this.action_list.selection_mode_enabled = false;
     }
 
     private void on_mark_as_unread() {
-        Geary.Folder? location = this.selected_folder;
+        Geary.Folder? location = this.action_folder;
         if (location != null) {
             this.controller.mark_conversations.begin(
                 location,
-                this.conversation_list_view.selected,
+                this.action_list.selected,
                 Geary.EmailFlags.UNREAD,
                 true,
                 (obj, res) => {
@@ -2627,15 +2843,15 @@ public class Application.MainWindow :
                 }
             );
         }
-        this.conversation_list_view.selection_mode_enabled = false;
+        this.action_list.selection_mode_enabled = false;
     }
 
     private void on_mark_as_starred() {
-        Geary.Folder? location = this.selected_folder;
+        Geary.Folder? location = this.action_folder;
         if (location != null) {
             this.controller.mark_conversations.begin(
                 location,
-                this.conversation_list_view.selected,
+                this.action_list.selected,
                 Geary.EmailFlags.FLAGGED,
                 true,
                 (obj, res) => {
@@ -2647,15 +2863,15 @@ public class Application.MainWindow :
                 }
             );
         }
-        this.conversation_list_view.selection_mode_enabled = false;
+        this.action_list.selection_mode_enabled = false;
     }
 
     private void on_mark_as_unstarred() {
-        Geary.Folder? location = this.selected_folder;
+        Geary.Folder? location = this.action_folder;
         if (location != null) {
             this.controller.mark_conversations.begin(
                 location,
-                this.conversation_list_view.selected,
+                this.action_list.selected,
                 Geary.EmailFlags.FLAGGED,
                 false,
                 (obj, res) => {
@@ -2667,11 +2883,11 @@ public class Application.MainWindow :
                 }
             );
         }
-        this.conversation_list_view.selection_mode_enabled = false;
+        this.action_list.selection_mode_enabled = false;
     }
 
     private void on_mark_as_junk_toggle() {
-        Geary.Folder? source = this.selected_folder;
+        Geary.Folder? source = this.action_folder;
         if (source != null) {
             Geary.Folder.SpecialUse destination =
                 (source.used_as != JUNK)
@@ -2680,7 +2896,7 @@ public class Application.MainWindow :
             this.controller.move_conversations_special.begin(
                 source,
                 destination,
-                this.conversation_list_view.selected,
+                this.action_list.selected,
                 (obj, res) => {
                     try {
                         this.controller.move_conversations_special.end(res);
@@ -2690,17 +2906,17 @@ public class Application.MainWindow :
                 }
             );
         }
-        this.conversation_list_view.selection_mode_enabled = false;
+        this.action_list.selection_mode_enabled = false;
     }
 
     private void on_move_conversation(Geary.Folder destination) {
         Geary.FolderSupport.Move source =
-            this.selected_folder as Geary.FolderSupport.Move;
+            this.action_folder as Geary.FolderSupport.Move;
         if (source != null) {
             this.controller.move_conversations.begin(
                 source,
                 destination,
-                this.conversation_list_view.selected,
+                this.action_list.selected,
                 (obj, res) => {
                     try {
                         this.controller.move_conversations.end(res);
@@ -2711,17 +2927,17 @@ public class Application.MainWindow :
             );
 
         }
-        this.conversation_list_view.selection_mode_enabled = false;
+        this.action_list.selection_mode_enabled = false;
     }
 
     private void on_copy_conversation(Geary.Folder destination) {
         Geary.FolderSupport.Copy source =
-            this.selected_folder as Geary.FolderSupport.Copy;
+            this.action_folder as Geary.FolderSupport.Copy;
         if (source != null) {
             this.controller.copy_conversations.begin(
                 source,
                 destination,
-                this.conversation_list_view.selected,
+                this.action_list.selected,
                 (obj, res) => {
                     try {
                         this.controller.copy_conversations.end(res);
@@ -2732,16 +2948,16 @@ public class Application.MainWindow :
             );
 
         }
-        this.conversation_list_view.selection_mode_enabled = false;
+        this.action_list.selection_mode_enabled = false;
     }
 
     private void on_archive_conversation() {
-        Geary.Folder source = this.selected_folder;
+        Geary.Folder source = this.action_folder;
         if (source != null) {
             this.controller.move_conversations_special.begin(
                 source,
                 ARCHIVE,
-                this.conversation_list_view.selected,
+                this.action_list.selected,
                 (obj, res) => {
                     try {
                         this.controller.move_conversations_special.end(res);
@@ -2751,16 +2967,16 @@ public class Application.MainWindow :
                 }
             );
         }
-        this.conversation_list_view.selection_mode_enabled = false;
+        this.action_list.selection_mode_enabled = false;
     }
 
     private void on_trash_conversation() {
-        Geary.Folder source = this.selected_folder;
+        Geary.Folder source = this.action_folder;
         if (source != null) {
             this.controller.move_conversations_special.begin(
                 source,
                 TRASH,
-                this.conversation_list_view.selected,
+                this.action_list.selected,
                 (obj, res) => {
                     try {
                         this.controller.move_conversations_special.end(res);
@@ -2775,9 +2991,9 @@ public class Application.MainWindow :
 
     private void on_delete_conversation() {
         Geary.FolderSupport.Remove target =
-            this.selected_folder as Geary.FolderSupport.Remove;
+            this.action_folder as Geary.FolderSupport.Remove;
         Gee.Collection<Geary.App.Conversation> conversations =
-            this.conversation_list_view.selected;
+            this.action_list.selected;
         if (target != null && this.prompt_delete_conversations(conversations.size)) {
             this.controller.delete_conversations.begin(
                 target,

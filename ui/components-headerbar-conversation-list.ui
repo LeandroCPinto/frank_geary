@@ -5,6 +5,26 @@
   <template class="ComponentsConversationListHeaderBar" parent="HdyHeaderBar">
     <property name="visible">True</property>
     <child>
+      <object class="GtkButton" id="folder_list_sidebar_button">
+        <property name="visible">True</property>
+        <property name="focus_on_click">False</property>
+        <property name="receives_default">False</property>
+        <property name="valign">center</property>
+        <property name="action_name">win.toggle-folder-list-sidebar</property>
+        <property name="tooltip_text" translatable="yes" context="tooltip">Show or hide the folder list</property>
+        <style>
+          <class name="image-button"/>
+        </style>
+        <child>
+          <object class="GtkImage" id="folder_list_sidebar_image">
+            <property name="visible">True</property>
+            <property name="icon_name">go-next-symbolic</property>
+            <property name="icon_size">1</property>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
       <object class="GtkButton" id="back_button">
         <property name="receives_default">False</property>
         <property name="valign">center</property>

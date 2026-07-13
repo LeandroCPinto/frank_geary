@@ -24,6 +24,19 @@ public class Components.ConversationListHeaderBar : Hdy.HeaderBar {
     [GtkChild] private unowned Gtk.ToggleButton search_button;
     [GtkChild] private unowned Gtk.ToggleButton selection_button;
     [GtkChild] public unowned Gtk.Button back_button;
+    [GtkChild] private unowned Gtk.Image folder_list_sidebar_image;
+
+    /** Points the sidebar button at what a click will do. */
+    public void set_folder_list_sidebar_shown(bool shown) {
+        this.folder_list_sidebar_image.icon_name = shown
+            ? "go-previous-symbolic"
+            : "go-next-symbolic";
+        this.folder_list_sidebar_button.tooltip_text = shown
+            ? _("Hide the folder list")
+            : _("Show the folder list");
+    }
+
+    [GtkChild] private unowned Gtk.Button folder_list_sidebar_button;
 
 
     construct {
