@@ -120,16 +120,19 @@ public class Geary.App.SearchFolder :
     private GLib.Cancellable executing = new GLib.Cancellable();
 
 
-    public SearchFolder(Account account, FolderRoot root) {
+    public SearchFolder(Account account,
+                        FolderRoot root,
+                        string basename = MAGIC_BASENAME) {
         this._account = account;
         this._properties = new FolderPropertiesImpl(0, 0);
-        this._path = root.get_child(MAGIC_BASENAME, Trillian.TRUE);
+        this._path = root.get_child(basename, Trillian.TRUE);
 
         account.folders_available_unavailable.connect(on_folders_available_unavailable);
         account.folders_use_changed.connect(on_folders_use_changed);
         account.email_locally_complete.connect(on_email_locally_complete);
         account.email_removed.connect(on_account_email_removed);
         account.email_locally_removed.connect(on_account_email_removed);
+        account.email_flags_changed.connect(on_account_email_flags_changed);
 
         this.entries = new_entry_set();
         this.ids = new_id_map();
@@ -145,6 +148,7 @@ public class Geary.App.SearchFolder :
         account.email_locally_complete.disconnect(on_email_locally_complete);
         account.email_removed.disconnect(on_account_email_removed);
         account.email_locally_removed.disconnect(on_account_email_removed);
+        account.email_flags_changed.disconnect(on_account_email_flags_changed);
     }
 
     /**
@@ -683,6 +687,19 @@ public class Geary.App.SearchFolder :
                                           Gee.Collection<EmailIdentifier> ids) {
         if (this.query != null) {
             this.remove.begin(folder, ids);
+        }
+    }
+
+    private void on_account_email_flags_changed(
+        Folder folder,
+        Gee.Map<EmailIdentifier, EmailFlags> map
+    ) {
+        // A flag change can move email in or out of the results — "is:unread"
+        // being the obvious case — so the query has to be run again
+        if (this.query != null) {
+            this.executing.cancel();
+            this.executing = new GLib.Cancellable();
+            this.update.begin();
         }
     }
 
