@@ -7,9 +7,43 @@
  */
 
 /**
+ * An additional inbox section, shown as a panel beside the inbox.
+ *
+ * The target is either "folder:Some/Path", naming an existing folder
+ * (Gmail labels arrive over IMAP as folders), or a search query using
+ * Geary's search operators.
+ */
+public struct Application.InboxSection {
+
+    public const string FOLDER_PREFIX = "folder:";
+
+    public string name;
+    public string target;
+
+    /** Whether this section names a folder rather than a search query. */
+    public bool is_folder {
+        get { return this.target.has_prefix(FOLDER_PREFIX); }
+    }
+
+    /** The folder path named by the target, or null if it is a query. */
+    public string? folder_path {
+        owned get {
+            return this.is_folder
+                ? this.target.substring(FOLDER_PREFIX.length).strip()
+                : null;
+        }
+    }
+
+}
+
+/**
  * Provides properties to access application GSettings values.
  */
 public class Application.Configuration : Geary.BaseObject {
+
+    /** Maximum number of additional inbox sections, as per Gmail. */
+    public const int MAX_INBOX_SECTIONS = 5;
+
 
 
     public const string ASK_OPEN_ATTACHMENT_KEY = "ask-open-attachment";
@@ -21,6 +55,9 @@ public class Application.Configuration : Geary.BaseObject {
     public const string DISPLAY_PREVIEW_KEY = "display-preview";
     public const string UNSET_HTML_COLORS = "unset-html-colors";
     public const string FOLDER_LIST_SIDEBAR_VISIBLE = "folder-list-sidebar-visible";
+    public const string INBOX_SECTIONS_VISIBLE = "inbox-sections-visible";
+    public const string INBOX_SECTIONS = "inbox-sections";
+    public const string INBOX_SECTIONS_DIVIDER = "inbox-sections-divider";
     public const string FORMATTING_TOOLBAR_VISIBLE = "formatting-toolbar-visible";
     public const string OPTIONAL_PLUGINS = "optional-plugins";
     public const string SEARCH_STRATEGY_KEY = "search-strategy";
@@ -96,6 +133,16 @@ public class Application.Configuration : Geary.BaseObject {
     public bool folder_list_sidebar_visible {
         get { return settings.get_boolean(FOLDER_LIST_SIDEBAR_VISIBLE); }
         set { set_boolean(FOLDER_LIST_SIDEBAR_VISIBLE, value); }
+    }
+
+    public bool inbox_sections_visible {
+        get { return settings.get_boolean(INBOX_SECTIONS_VISIBLE); }
+        set { set_boolean(INBOX_SECTIONS_VISIBLE, value); }
+    }
+
+    public int inbox_sections_divider {
+        get { return settings.get_int(INBOX_SECTIONS_DIVIDER); }
+        set { settings.set_int(INBOX_SECTIONS_DIVIDER, value); }
     }
 
     public bool autoselect {
@@ -198,6 +245,37 @@ public class Application.Configuration : Geary.BaseObject {
     /** Sets the saved size of the composer window. */
     public void set_composer_window_size(int[] value) {
         this.settings.set_value(COMPOSER_WINDOW_SIZE_KEY, value);
+    }
+
+    /** Returns the configured additional inbox sections. */
+    public InboxSection[] get_inbox_sections() {
+        InboxSection[] sections = {};
+        var value = this.settings.get_value(INBOX_SECTIONS);
+        for (size_t i = 0; i < value.n_children(); i++) {
+            if (sections.length >= MAX_INBOX_SECTIONS) {
+                break;
+            }
+            string name;
+            string target;
+            value.get_child_value(i).get("(ss)", out name, out target);
+            target = target.strip();
+            if (target != "") {
+                sections += InboxSection() {
+                    name = (name.strip() != "") ? name.strip() : target,
+                    target = target
+                };
+            }
+        }
+        return sections;
+    }
+
+    /** Sets the configured additional inbox sections. */
+    public void set_inbox_sections(InboxSection[] sections) {
+        var builder = new GLib.VariantBuilder(new GLib.VariantType("a(ss)"));
+        foreach (var section in sections) {
+            builder.add("(ss)", section.name, section.target);
+        }
+        this.settings.set_value(INBOX_SECTIONS, builder.end());
     }
 
     /** Returns list of trusted domains for which images loading is allowed. */

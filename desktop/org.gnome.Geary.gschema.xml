@@ -28,9 +28,27 @@
     </key>
 
     <key name="folder-list-sidebar-visible" type="b">
-        <default>true</default>
+        <default>false</default>
         <summary>Show/hide folder list sidebar</summary>
         <description>True if the folder list sidebar is shown.</description>
+    </key>
+
+    <key name="inbox-sections-visible" type="b">
+        <default>false</default>
+        <summary>Show/hide the additional inbox sections panel</summary>
+        <description>True if the additional inbox sections panel is shown next to the conversation list.</description>
+    </key>
+
+    <key name="inbox-sections-divider" type="i">
+        <default>400</default>
+        <summary>Position of the divider above the inbox sections</summary>
+        <description>Height in pixels given to the inbox above its sections.</description>
+    </key>
+
+    <key name="inbox-sections" type="a(ss)">
+        <default>[]</default>
+        <summary>Additional inbox sections</summary>
+        <description>Up to five (name, target) pairs shown as panels beside the inbox. The target is either "folder:Full/Path" naming an existing folder, or a search query using Geary search operators.</description>
     </key>
 
     <key name="autoselect" type="b">

@@ -49,6 +49,7 @@ client_vala_sources = files(
   'components/components-attachment-pane.vala',
   'components/components-conversation-actions.vala',
   'components/components-entry-undo.vala',
+  'components/components-inbox-sections-panel.vala',
   'components/components-headerbar-application.vala',
   'components/components-headerbar-conversation-list.vala',
   'components/components-headerbar-conversation.vala',
