@@ -27,6 +27,7 @@ internal class ConversationList.Row : Gtk.ListBoxRow {
 
     [GtkChild] unowned Gtk.Image flagged_icon;
     [GtkChild] unowned Gtk.Button star_button;
+    [GtkChild] unowned Gtk.Button trash_button;
 
     [GtkChild] unowned Gtk.CheckButton selected_button;
 
@@ -38,6 +39,7 @@ internal class ConversationList.Row : Gtk.ListBoxRow {
 
     internal signal void toggle_flag(ConversationList.Row row,
                                      Geary.NamedFlag flag);
+    internal signal void trash(ConversationList.Row row);
     internal signal void toggle_selection(ConversationList.Row row,
                                           bool active);
 
@@ -55,6 +57,8 @@ internal class ConversationList.Row : Gtk.ListBoxRow {
         this.star_button.clicked.connect(
             () => toggle_flag(this, Geary.EmailFlags.FLAGGED)
         );
+
+        this.trash_button.clicked.connect(() => trash(this));
 
         // Ticking the box always means "select this", whether or not the list
         // is already in selection mode: it is what starts the selection

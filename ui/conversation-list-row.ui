@@ -21,6 +21,28 @@
               </object>
             </child>
             <child>
+              <object class="GtkButton" id="trash_button">
+                <property name="visible">True</property>
+                <property name="relief">none</property>
+                <property name="can-focus">False</property>
+                <property name="valign">center</property>
+                <property name="tooltip-text" translatable="yes">Move to Trash</property>
+                <style>
+                  <class name="row-action"/>
+                </style>
+                <child>
+                  <object class="GtkImage" id="trash_icon">
+                    <property name="visible">True</property>
+                    <property name="icon-name">user-trash-symbolic</property>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">False</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkButton" id="star_button">
                 <property name="visible">True</property>
                 <property name="relief">none</property>

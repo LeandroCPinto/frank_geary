@@ -81,7 +81,26 @@ row.conversation-list .date {
   margin-left: 1em;
 }
 
-/* The star sits inside the row, so it must not look like a button */
+/* The star and the trash button sit inside the row, so they must not look
+ * like buttons */
+row.conversation-list button.row-action {
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+row.conversation-list button.row-action image {
+  opacity: 0.5;
+}
+
+row.conversation-list button.row-action:hover image {
+  opacity: 1;
+}
+
 row.conversation-list button.star {
   padding: 0;
   margin: 0;

@@ -182,6 +182,7 @@ public class ConversationList.View : Gtk.ScrolledWindow, Geary.BaseInterface {
         var row = new Row(config, convo, this.selection_mode_enabled);
         row.toggle_flag.connect(on_toggle_flags);
         row.toggle_selection.connect(on_toggle_selection);
+        row.trash.connect(on_trash_row);
         return row;
     }
 
@@ -418,6 +419,21 @@ public class ConversationList.View : Gtk.ScrolledWindow, Geary.BaseInterface {
     public signal void mark_conversations(Gee.Collection<Geary.App.Conversation> conversations,
                                           Geary.NamedFlag flag);
 
+
+    /**
+     * Emitted when the user expresses intent to trash a set of conversations
+     */
+    public signal void trash_conversations(
+        Gee.Collection<Geary.App.Conversation> conversations
+    );
+
+    private void on_trash_row(ConversationList.Row row) {
+        if (row.is_selected()) {
+            trash_conversations(this.selected);
+        } else {
+            trash_conversations(Geary.Collection.single(row.conversation));
+        }
+    }
 
     private void on_toggle_flags(ConversationList.Row row, Geary.NamedFlag flag) {
         if (row.is_selected()) {

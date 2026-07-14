@@ -1413,6 +1413,11 @@ public class Application.MainWindow :
                 this.selected_folder, conversations, flag
             )
         );
+        this.conversation_list_view.trash_conversations.connect(
+            (conversations) => trash_conversations_in(
+                this.selected_folder, conversations
+            )
+        );
         this.conversation_list_view.conversations_selected.connect(on_conversations_selected);
         this.conversation_list_view.conversation_activated.connect(on_conversation_activated);
         this.conversation_list_view.visible_conversations.notify.connect(on_visible_conversations_changed);
@@ -1501,6 +1506,7 @@ public class Application.MainWindow :
             on_inbox_sections_expansion_changed
         );
         this.inbox_sections.mark_conversations.connect(mark_conversations_in);
+        this.inbox_sections.trash_conversations.connect(trash_conversations_in);
         this.conversation_list_paned.pack2(this.inbox_sections, true, false);
         update_inbox_sections_visibility();
 
@@ -3031,12 +3037,18 @@ public class Application.MainWindow :
     }
 
     private void on_trash_conversation() {
-        Geary.Folder source = this.action_folder;
-        if (source != null) {
+        trash_conversations_in(this.action_folder, this.action_list.selected);
+    }
+
+    private void trash_conversations_in(
+        Geary.Folder? source,
+        Gee.Collection<Geary.App.Conversation> conversations
+    ) {
+        if (source != null && !conversations.is_empty) {
             this.controller.move_conversations_special.begin(
                 source,
                 TRASH,
-                this.action_list.selected,
+                conversations,
                 (obj, res) => {
                     try {
                         this.controller.move_conversations_special.end(res);

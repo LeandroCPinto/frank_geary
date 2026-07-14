@@ -191,6 +191,12 @@ public class Components.InboxSectionsPanel : Gtk.Box {
         Geary.NamedFlag flag
     );
 
+    /** Fired when conversations are trashed from a section. */
+    public signal void trash_conversations(
+        Geary.Folder folder,
+        Gee.Collection<Geary.App.Conversation> conversations
+    );
+
     /** The folder of the section whose selection is driving the viewer. */
     public Geary.Folder? active_folder { get; private set; default = null; }
 
@@ -268,6 +274,11 @@ public class Components.InboxSectionsPanel : Gtk.Box {
             section.list_view.mark_conversations.connect(
                 (conversations, flag) => mark_conversations(
                     section.monitor.base_folder, conversations, flag
+                )
+            );
+            section.list_view.trash_conversations.connect(
+                (conversations) => trash_conversations(
+                    section.monitor.base_folder, conversations
                 )
             );
 
