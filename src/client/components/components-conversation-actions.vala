@@ -25,6 +25,14 @@ public class Components.ConversationActions : Gtk.Box {
         }
     }
 
+    /** The popover of the dedicated move button, which always moves. */
+    public FolderPopover move_popover {
+        get {
+            unowned var popover = this.move_message_button.popover as FolderPopover;
+            return popover;
+        }
+    }
+
     public int selected_conversations { get; set; }
 
     private Geary.Account _account;
@@ -42,6 +50,7 @@ public class Components.ConversationActions : Gtk.Box {
 
     [GtkChild] private unowned Gtk.MenuButton mark_message_button { get; }
     [GtkChild] private unowned Gtk.MenuButton copy_message_button { get;  }
+    [GtkChild] private unowned Gtk.MenuButton move_message_button { get;  }
 
     [GtkChild] private unowned Gtk.Box action_buttons { get; }
     [GtkChild] private unowned Gtk.Button archive_button;
@@ -91,10 +100,20 @@ public class Components.ConversationActions : Gtk.Box {
             "account", this.copy_message_button.popover,
             "account", BindingFlags.DEFAULT
         );
+
+        this.move_message_button.popover = new FolderPopover(config, true);
+        this.bind_property(
+            "account", this.move_message_button.popover,
+            "account", BindingFlags.DEFAULT
+        );
     }
 
     public void set_copy_sensitive(bool is_sensitive) {
         this.copy_message_button.sensitive = is_sensitive;
+    }
+
+    public void set_move_sensitive(bool is_sensitive) {
+        this.move_message_button.sensitive = is_sensitive;
     }
 
     public void set_mark_sensitive(bool is_sensitive) {
@@ -131,6 +150,12 @@ public class Components.ConversationActions : Gtk.Box {
         this.archive_button.tooltip_text = ngettext(
             "Archive conversation",
             "Archive conversations",
+            this.selected_conversations
+            );
+
+        this.move_message_button.tooltip_text = ngettext(
+            "Move conversation to…",
+            "Move conversations to…",
             this.selected_conversations
             );
 

@@ -104,6 +104,24 @@
           </packing>
         </child>
         <child>
+          <object class="GtkMenuButton" id="move_message_button">
+            <property name="visible">True</property>
+            <property name="focus_on_click">False</property>
+            <property name="receives_default">False</property>
+            <property name="always_show_image">True</property>
+            <child>
+              <object class="GtkImage" id="move_message_image">
+                <property name="visible">True</property>
+                <property name="icon_name">go-jump-symbolic</property>
+              </object>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+          </packing>
+        </child>
+        <child>
           <object class="GtkButton" id="archive_button">
             <property name="visible">True</property>
             <property name="focus_on_click">False</property>

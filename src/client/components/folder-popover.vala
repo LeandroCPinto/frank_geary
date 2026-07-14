@@ -18,7 +18,16 @@ public class FolderPopover : Gtk.Popover {
     public signal void copy_conversation(Geary.Folder folder);
     public signal void move_conversation(Geary.Folder folder);
 
-    public FolderPopover(Application.Configuration config) {
+    /**
+     * Whether picking a folder always moves the conversation there.
+     *
+     * Used by the dedicated move button: labelling and moving are separate
+     * actions there, as in Gmail, so the switch would only get in the way.
+     */
+    private bool force_move = false;
+
+    public FolderPopover(Application.Configuration config,
+                         bool force_move = false) {
         list_box.set_filter_func(row_filter);
         list_box.set_sort_func(row_sort);
         this.show.connect(() => search_entry.grab_focus());
@@ -26,7 +35,13 @@ public class FolderPopover : Gtk.Popover {
             search_entry.set_text("");
             invalidate_filter();
         });
-        config.bind("move-messages-on-tag", this.move_switch, "active");
+        this.force_move = force_move;
+        if (force_move) {
+            this.move_switch.get_parent().no_show_all = true;
+            this.move_switch.get_parent().hide();
+        } else {
+            config.bind("move-messages-on-tag", this.move_switch, "active");
+        }
     }
 
     private void add_folder(Application.FolderContext context, Gee.HashMap<string,string> map) {
@@ -97,7 +112,7 @@ public class FolderPopover : Gtk.Popover {
     private void on_row_activated(Gtk.ListBoxRow? row) {
         if (row != null) {
             Geary.Folder folder = row.get_data<Geary.Folder>("folder");
-            if (this.move_switch.active) {
+            if (this.force_move || this.move_switch.active) {
                 move_conversation(folder);
             } else {
                 copy_conversation(folder);
