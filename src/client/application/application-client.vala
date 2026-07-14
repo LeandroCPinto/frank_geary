@@ -15,6 +15,7 @@ public class Application.Client : Gtk.Application {
     public const string NAME = "Geary" + Config.NAME_SUFFIX;
     public const string RESOURCE_BASE_PATH = "/org/gnome/Geary";
     public const string SCHEMA_ID = "org.gnome.Geary";
+    private const string COLOR_SCHEME_KEY = "color-scheme";
     public const string DESCRIPTION = _("Send and receive email");
     public const string COPYRIGHT_1 = _("Copyright © 2016 Software Freedom Conservancy Inc.");
     public const string COPYRIGHT_2 = _("Copyright © 2016-2021 Geary Development Team.");
@@ -377,6 +378,15 @@ public class Application.Client : Gtk.Application {
         add_edit_accelerators(Action.Edit.COPY, { "<Ctrl>C" });
         add_edit_accelerators(Action.Edit.REDO, { "<Ctrl><Shift>Z" });
         add_edit_accelerators(Action.Edit.UNDO, { "<Ctrl>Z" });
+
+        // Follow the desktop's dark preference. GTK3 does not read
+        // org.gnome.desktop.interface color-scheme by itself — only
+        // libadwaita does — so with a light theme name and a dark
+        // preference the app ends up half dark, half light.
+        update_prefer_dark_theme();
+        this.config.gnome_interface.changed[COLOR_SCHEME_KEY].connect(
+            update_prefer_dark_theme
+        );
 
         // Load Geary GTK CSS
         var provider = new Gtk.CssProvider();
@@ -1098,6 +1108,18 @@ public class Application.Client : Gtk.Application {
                                       string[] accelerators,
                                       GLib.Variant? param = null) {
         set_accels_for_action("app." + action, accelerators);
+    }
+
+    private void update_prefer_dark_theme() {
+        var settings = Gtk.Settings.get_default();
+        if (settings != null) {
+            var scheme = this.config.gnome_interface.get_string(
+                COLOR_SCHEME_KEY
+            );
+            settings.gtk_application_prefer_dark_theme = (
+                scheme == "prefer-dark"
+            );
+        }
     }
 
     private void update_single_key_shortcuts() {

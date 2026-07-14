@@ -66,7 +66,7 @@ public class Components.InboxSectionsPanel : Gtk.Box {
             var header = new Gtk.Button();
             header.relief = NONE;
             header.add(header_box);
-            header.get_style_context().add_class("background");
+            header.get_style_context().add_class("geary-inbox-section-header");
             header.clicked.connect(() => set_section_expanded(!this.expanded));
 
             // A GtkRevealer would size itself to the list's natural height
@@ -158,6 +158,7 @@ public class Components.InboxSectionsPanel : Gtk.Box {
     public InboxSectionsPanel(Application.Configuration config) {
         Object(orientation: Gtk.Orientation.VERTICAL, spacing: 0);
         this.config = config;
+        get_style_context().add_class("geary-inbox-sections");
     }
 
     /**

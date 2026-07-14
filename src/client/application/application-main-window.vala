@@ -1430,7 +1430,7 @@ public class Application.MainWindow :
         var inbox_header = new Gtk.Button();
         inbox_header.relief = NONE;
         inbox_header.add(inbox_header_box);
-        inbox_header.get_style_context().add_class("background");
+        inbox_header.get_style_context().add_class("geary-inbox-section-header");
         inbox_header.clicked.connect(
             () => set_inbox_expanded(!this.inbox_expanded)
         );

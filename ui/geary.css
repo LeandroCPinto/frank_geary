@@ -69,7 +69,8 @@ row.conversation-list .details {
 }
 
 row.conversation-list .tertiary {
-  opacity: 0.7;
+  /* 0.7 washed the preview and date out to near-illegible on dark themes */
+  opacity: 0.85;
   font-size: 0.8em;
 }
 
@@ -527,4 +528,29 @@ dialog.geary-upgrade label {
 .thin-button {
   padding-left: 4px;
   padding-right: 4px;
+}
+
+/* Inbox sections
+ *
+ * Theme colours rather than literals, so the light theme still works:
+ * @theme_fg_color is white on dark, near-black on light, and shade()
+ * darkens or lightens relative to the theme's own background.
+ */
+
+.geary-inbox-sections {
+  background-color: shade(@theme_base_color, 0.90);
+}
+
+.geary-inbox-section-header {
+  background-color: shade(@theme_bg_color, 0.85);
+  border-radius: 0;
+  padding: 0;
+}
+
+.geary-inbox-section-header label {
+  color: @theme_fg_color;
+}
+
+.geary-inbox-section-header label.dim-label {
+  opacity: 0.8;
 }
