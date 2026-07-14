@@ -61,3 +61,9 @@ The app id remains `org.gnome.Geary`; the only user-visible branding is the desk
 The repo is `github.com/akitaonrails/frank_geary` (standalone; the original fork was deleted to detach from the nielsdg/Geary network — old releases/secrets did not survive).
 
 Release flow: push tag `v<pkgver>` with `_` → `-` (e.g. `pkgver=46.0_frank.2` → tag `v46.0-frank.2`) → `.github/workflows/binary-release.yml` builds a release-profile install tree in an Arch container and uploads `frank-geary-<pkgver>-x86_64.tar.zst` + `.sha256` to the GitHub Release (created if missing). Then update `packaging/aur/frank-geary-bin/PKGBUILD` (pkgver + sha256) and `frank-geary/PKGBUILD` (pkgver), regenerate both `.SRCINFO`s (`makepkg --printsrcinfo` — the validate job diffs them and fails on mismatch), push, and dispatch `aur.yml` with `publish=true` to push both packages to AUR (needs the `AUR_SSH_KEY` repo secret).
+
+## Fork do Leandro: branch `inbox-sections`
+
+Esta branch adiciona as seções da caixa de entrada (ver `install-debian.sh` e os commits `feat(client)`/`feat(engine)`). O remote `fork` é `github.com/LeandroCPinto/frank_geary`.
+
+**Sempre que commitar nesta branch, dê `git push fork inbox-sections`.** As outras máquinas do Leandro são instaladas por `install-debian.sh`, que baixa a branch do fork no GitHub — o que não foi enviado não existe para elas, e o tutorial do Notion ("Instalar FrankGeary no Debian 13", database `[ dicas linux ]`) puxa o script daquele mesmo lugar.
