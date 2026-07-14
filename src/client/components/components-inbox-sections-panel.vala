@@ -36,6 +36,8 @@ public class Components.InboxSectionsPanel : Gtk.Box {
         private Gtk.Image arrow = new Gtk.Image.from_icon_name(
             "pan-down-symbolic", MENU
         );
+        private Gtk.CheckButton select_all_button = new Gtk.CheckButton();
+        private bool updating_select_all = false;
 
         public Section(string name,
                        Geary.Folder folder,
@@ -54,20 +56,30 @@ public class Components.InboxSectionsPanel : Gtk.Box {
             this.count_label.get_style_context().add_class("dim-label");
 
             var header_box = new Gtk.Box(HORIZONTAL, 6);
-            header_box.margin_start = 6;
-            header_box.margin_end = 6;
-            header_box.margin_top = 3;
-            header_box.margin_bottom = 3;
             header_box.add(this.arrow);
             header_box.add(title);
             header_box.add(this.count_label);
 
-            // The whole header toggles the section, as in the folder list
-            var header = new Gtk.Button();
-            header.relief = NONE;
-            header.add(header_box);
+            // The rest of the header toggles the section, as in the folder list
+            var toggle = new Gtk.Button();
+            toggle.relief = NONE;
+            toggle.hexpand = true;
+            toggle.add(header_box);
+            toggle.clicked.connect(() => set_section_expanded(!this.expanded));
+
+            // Selects or clears the whole section, as in Gmail
+            this.select_all_button.valign = CENTER;
+            this.select_all_button.tooltip_text = _("Select all in this section");
+            this.select_all_button.toggled.connect(on_select_all_toggled);
+
+            var header = new Gtk.Box(HORIZONTAL, 6);
+            header.margin_start = 6;
+            header.margin_end = 6;
+            header.margin_top = 3;
+            header.margin_bottom = 3;
+            header.add(this.select_all_button);
+            header.add(toggle);
             header.get_style_context().add_class("geary-inbox-section-header");
-            header.clicked.connect(() => set_section_expanded(!this.expanded));
 
             // A GtkRevealer would size itself to the list's natural height
             // (zero, for a scrolled window) and swallow the section, so the
@@ -113,6 +125,28 @@ public class Components.InboxSectionsPanel : Gtk.Box {
             }
         }
 
+        private void on_select_all_toggled() {
+            if (this.updating_select_all) {
+                return;
+            }
+            if (this.select_all_button.active) {
+                // A selection the user cannot see would be a trap
+                set_section_expanded(true);
+                this.list_view.select_all();
+            } else {
+                this.list_view.unselect_all();
+            }
+        }
+
+        /** Unticks the select-all box, e.g. when the selection moved away. */
+        public void reset_select_all() {
+            if (this.select_all_button.active) {
+                this.updating_select_all = true;
+                this.select_all_button.active = false;
+                this.updating_select_all = false;
+            }
+        }
+
         /** Applies the expanded state to the widgets, e.g. after show_all(). */
         public void sync_expanded_state() {
             this.list_view.visible = this.expanded;
@@ -121,6 +155,7 @@ public class Components.InboxSectionsPanel : Gtk.Box {
                 : "pan-end-symbolic";
             if (!this.expanded) {
                 this.list_view.unselect_all();
+                reset_select_all();
             }
         }
 
@@ -143,6 +178,18 @@ public class Components.InboxSectionsPanel : Gtk.Box {
 
     /** Fired when a section is opened or the last open one is closed. */
     public signal void expansion_changed(bool any_expanded);
+
+    /**
+     * Fired when conversations are flagged in a section.
+     *
+     * The section's own folder is passed along, since the flags must be
+     * applied there and not to whatever the folder list has selected.
+     */
+    public signal void mark_conversations(
+        Geary.Folder folder,
+        Gee.Collection<Geary.App.Conversation> conversations,
+        Geary.NamedFlag flag
+    );
 
     /** The folder of the section whose selection is driving the viewer. */
     public Geary.Folder? active_folder { get; private set; default = null; }
@@ -217,6 +264,11 @@ public class Components.InboxSectionsPanel : Gtk.Box {
             );
             section.list_view.conversation_activated.connect(
                 (activated, button) => conversation_activated(activated, button)
+            );
+            section.list_view.mark_conversations.connect(
+                (conversations, flag) => mark_conversations(
+                    section.monitor.base_folder, conversations, flag
+                )
             );
 
             // Only one section may be open at a time: opening one closes the
@@ -300,6 +352,7 @@ public class Components.InboxSectionsPanel : Gtk.Box {
     public void deselect_all() {
         foreach (var section in this.sections) {
             section.list_view.unselect_all();
+            section.reset_select_all();
         }
         this.active_folder = null;
         this.active_list = null;
@@ -322,6 +375,7 @@ public class Components.InboxSectionsPanel : Gtk.Box {
             foreach (var other in this.sections) {
                 if (other != source) {
                     other.list_view.unselect_all();
+                    other.reset_select_all();
                 }
             }
             // Actions must act on this section's folder, not on whatever the

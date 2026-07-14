@@ -429,9 +429,15 @@ public class ConversationList.View : Gtk.ScrolledWindow, Geary.BaseInterface {
 
     private void on_toggle_selection(ConversationList.Row row, bool active) {
         if (active) {
+            // Ticking a box starts a multiple selection, as in Gmail: the row
+            // is selected rather than opened
+            this.selection_mode_enabled = true;
             this.list.select_row(row);
         } else {
             this.list.unselect_row(row);
+            if (this.list.get_selected_rows().length() == 0) {
+                this.selection_mode_enabled = false;
+            }
         }
     }
 
