@@ -47,11 +47,14 @@ revealer components-conversation-actions {
 }
 
 
-/* Conversation List */
+/* Conversation List
+ *
+ * One row is a single line, as in Gmail: star, sender, subject, dimmed
+ * preview, date.
+ */
 row.conversation-list {
-  padding-top: 0.5em;
-  padding-bottom: 0.5em;
-  padding-right: 0.5em;
+  padding: 2px 8px;
+  min-height: 0;
 }
 
 row.conversation-list.drag-n-drop {
@@ -60,12 +63,8 @@ row.conversation-list.drag-n-drop {
   box-shadow: none;
 }
 
-row.conversation-list label {
-  margin-bottom: .4em;
-}
-
 row.conversation-list .details {
-  padding-left: 1em;
+  padding-left: 0;
 }
 
 row.conversation-list .tertiary {
@@ -76,15 +75,30 @@ row.conversation-list .tertiary {
 
 row.conversation-list .subject {
   font-size: 0.9em;
-  padding-left: 0.5em;
-}
-
-row.conversation-list .preview {
-  padding-left: 0.6em;
 }
 
 row.conversation-list .date {
   margin-left: 1em;
+}
+
+/* The star sits inside the row, so it must not look like a button */
+row.conversation-list button.star {
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  min-height: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+row.conversation-list button.star image {
+  opacity: 0.5;
+}
+
+row.conversation-list button.star.starred image {
+  color: #f4b400;
+  opacity: 1;
 }
 
 /* Unread styling */
@@ -99,7 +113,6 @@ row.conversation-list.unread .participants {
 row.conversation-list .count-badge {
   background: #888888;
   color: white;
-  margin-top: 4px;
   min-width: 1.5em;
   border-radius: 1em;
   font-size: .8em;
@@ -538,11 +551,11 @@ dialog.geary-upgrade label {
  */
 
 .geary-inbox-sections {
-  background-color: shade(@theme_base_color, 0.90);
+  background-color: @theme_bg_color;
 }
 
 .geary-inbox-section-header {
-  background-color: shade(@theme_bg_color, 0.85);
+  background-color: shade(@theme_bg_color, 1.10);
   border-radius: 0;
   padding: 0;
 }
@@ -553,4 +566,17 @@ dialog.geary-upgrade label {
 
 .geary-inbox-section-header label.dim-label {
   opacity: 0.8;
+}
+
+/* Gmail's palette: the content surfaces — folder sidebar and message lists —
+ * are darker than the rest of the app, which sits in a lighter grey.
+ */
+
+conversation-list,
+conversation-list list {
+  background-color: shade(@theme_base_color, 0.82);
+}
+
+treeview.sidebar {
+  background-color: shade(@theme_base_color, 0.82);
 }
