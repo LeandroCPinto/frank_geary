@@ -26,12 +26,15 @@ internal class ConversationList.Row : Gtk.ListBoxRow {
     [GtkChild] unowned Gtk.Label count_badge;
 
     [GtkChild] unowned Gtk.Image flagged_icon;
+    [GtkChild] unowned Gtk.Button star_button;
 
     [GtkChild] unowned Gtk.CheckButton selected_button;
 
     internal Geary.App.Conversation conversation;
     private Application.Configuration config;
     private DateTime? recv_time;
+    private bool selection_enabled = false;
+    private bool updating_button = false;
 
     internal signal void toggle_flag(ConversationList.Row row,
                                      Geary.NamedFlag flag);
@@ -49,6 +52,14 @@ internal class ConversationList.Row : Gtk.ListBoxRow {
         config.bind(Application.Configuration.DISPLAY_PREVIEW_KEY,
                     this.preview, "visible");
 
+        this.star_button.clicked.connect(
+            () => toggle_flag(this, Geary.EmailFlags.FLAGGED)
+        );
+
+        // Ticking the box always means "select this", whether or not the list
+        // is already in selection mode: it is what starts the selection
+        this.selected_button.toggled.connect(on_button_toggled);
+
         if (selection_mode_enabled) {
             set_selection_enabled(true);
         }
@@ -64,7 +75,11 @@ internal class ConversationList.Row : Gtk.ListBoxRow {
         if (last_email != null) {
             var text = Util.Email.strip_subject_prefixes(last_email);
             this.subject.set_text(text);
-            this.preview.set_text(last_email.get_preview_as_string());
+            var preview_text = last_email.get_preview_as_string();
+            this.preview.set_text(
+                Geary.String.is_empty_or_whitespace(preview_text)
+                    ? "" : "- " + preview_text
+            );
             this.recv_time = last_email.properties.date_received.to_local();
             refresh_time();
         }
@@ -82,17 +97,23 @@ internal class ConversationList.Row : Gtk.ListBoxRow {
 
     }
 
+    /**
+     * Whether the row's check box tracks the list's selection.
+     *
+     * The box is always visible, as in Gmail, but outside of selection mode it
+     * must not tick itself just because the row was selected to be read.
+     */
     internal void set_selection_enabled(bool enabled) {
+        if (this.selection_enabled == enabled) {
+            return;
+        }
+        this.selection_enabled = enabled;
         if (enabled) {
-            set_button_active(this.is_selected());
             this.state_flags_changed.connect(update_button);
-            this.selected_button.toggled.connect(update_state_flags);
-            this.selected_button.show();
+            set_button_active(this.is_selected());
         } else {
             this.state_flags_changed.disconnect(update_button);
-            this.selected_button.toggled.disconnect(update_state_flags);
             set_button_active(false);
-            this.selected_button.hide();
         }
     }
 
@@ -108,6 +129,7 @@ internal class ConversationList.Row : Gtk.ListBoxRow {
     }
 
     private void set_button_active(bool active) {
+        this.updating_button = true;
         this.selected_button.set_active(active);
         if (active) {
             this.get_style_context().add_class("selected");
@@ -116,20 +138,19 @@ internal class ConversationList.Row : Gtk.ListBoxRow {
             this.get_style_context().remove_class("selected");
             this.unset_state_flags(Gtk.StateFlags.SELECTED);
         }
+        this.updating_button = false;
     }
+
     private void update_button() {
-        bool is_selected = (Gtk.StateFlags.SELECTED in this.get_state_flags());
-
-        this.selected_button.toggled.disconnect(update_state_flags);
-        set_button_active(is_selected);
-        this.selected_button.toggled.connect(update_state_flags);
-
+        if (!this.updating_button) {
+            set_button_active(Gtk.StateFlags.SELECTED in this.get_state_flags());
+        }
     }
 
-    private void update_state_flags() {
-        this.state_flags_changed.disconnect(update_button);
-        toggle_selection(this, this.selected_button.get_active());
-        this.state_flags_changed.connect(update_button);
+    private void on_button_toggled() {
+        if (!this.updating_button) {
+            toggle_selection(this, this.selected_button.get_active());
+        }
     }
 
     private void update_flags(Geary.Email? email) {
@@ -139,10 +160,15 @@ internal class ConversationList.Row : Gtk.ListBoxRow {
             get_style_context().remove_class("unread");
         }
 
+        // The star is always shown, as in Gmail: it is an outline when the
+        // conversation is not flagged, and clicking it toggles the flag
+        var star = this.star_button.get_style_context();
         if (conversation.is_flagged()) {
-            this.flagged_icon.show();
+            this.flagged_icon.icon_name = "starred-symbolic";
+            star.add_class("starred");
         } else {
-            this.flagged_icon.hide();
+            this.flagged_icon.icon_name = "non-starred-symbolic";
+            star.remove_class("starred");
         }
     }
 
