@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#
+# Envia a branch inbox-sections ao fork a cada commit.
+#
+# As outras máquinas instalam via install-debian.sh, que baixa a branch do
+# fork no GitHub: commit sem push não existe para elas.
+#
+# Ativado por `git config core.hooksPath .githooks` (o install-debian.sh faz
+# isso; numa máquina onde o script não rodou, rode o comando à mão).
+#
+# Nunca falha o commit — se o push não der (sem rede, sem credencial), apenas
+# avisa, e o commit já está feito de qualquer forma.
+
+branch="$(git rev-parse --abbrev-ref HEAD)"
+
+if [ "$branch" != "inbox-sections" ]; then
+    exit 0
+fi
+
+if ! git remote get-url fork >/dev/null 2>&1; then
+    echo "post-commit: AVISO — remote 'fork' não existe; rode:" >&2
+    echo "  git remote add fork https://github.com/LeandroCPinto/frank_geary.git" >&2
+    exit 0
+fi
+
+echo "post-commit: enviando $branch para o fork..."
+if git push --quiet fork "$branch"; then
+    echo "post-commit: push ok ($(git log --oneline -1))"
+else
+    echo "post-commit: AVISO — push falhou; rode 'git push fork $branch' quando puder." >&2
+fi
+
+exit 0

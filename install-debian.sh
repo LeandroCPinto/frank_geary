@@ -41,6 +41,9 @@ else
 fi
 echo "    HEAD: $(git log --oneline -1)"
 
+# hooks versionados: o post-commit envia a branch ao fork automaticamente
+git config core.hooksPath .githooks
+
 echo "==> 3/5 build"
 [ -d build ] || meson setup build -Dprofile=release --prefix=/usr/local
 meson compile -C build

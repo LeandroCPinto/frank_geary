@@ -68,4 +68,4 @@ Esta branch adiciona as seções da caixa de entrada (ver `install-debian.sh` e 
 
 **Sempre que commitar nesta branch, dê `git push fork inbox-sections`.** As outras máquinas do Leandro são instaladas por `install-debian.sh`, que baixa a branch do fork no GitHub — o que não foi enviado não existe para elas, e o tutorial do Notion ("Instalar FrankGeary no Debian 13", database `[ dicas linux ]`) puxa o script daquele mesmo lugar.
 
-O push é automático: há um hook `post-commit` local (`.git/hooks/post-commit`) que envia a branch ao fork a cada commit. Hooks não são versionados — numa máquina nova, recrie-o.
+O push é automático: o hook versionado `.githooks/post-commit` envia a branch ao fork a cada commit. Ele depende de `git config core.hooksPath .githooks`, que o `install-debian.sh` configura — numa máquina onde o script não rodou, rode esse comando à mão.
